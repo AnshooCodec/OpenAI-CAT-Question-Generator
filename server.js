@@ -36,8 +36,16 @@ app.post('/generate-questions', async (req, res) => {
     });
 
     const output = completion.choices[0].message.content;
-    const parsed = JSON.parse(output);
-    res.json({ questions: parsed });
+
+// Try to extract JSON from the response
+const match = output.match(/\[\s*{[\s\S]*}\s*\]/);
+if (!match) {
+  throw new Error('AI response did not contain valid JSON array');
+}
+
+const parsed = JSON.parse(match[0]);
+res.json({ questions: parsed });
+
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Failed to generate questions', details: error.message });
