@@ -2,7 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const bodyParser = require('body-parser');
-const { Configuration, OpenAIApi } = require('openai');
+const OpenAI = require('openai'); // ✅ updated for SDK v4+
 
 const app = express();
 const port = process.env.PORT || 5000;
@@ -10,10 +10,9 @@ const port = process.env.PORT || 5000;
 app.use(cors());
 app.use(bodyParser.json());
 
-const configuration = new Configuration({
-  apiKey: process.env.OPENAI_API_KEY,
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY, // ✅ uses .env key
 });
-const openai = new OpenAIApi(configuration);
 
 app.post('/generate-questions', async (req, res) => {
   const { articleText } = req.body;
@@ -25,7 +24,7 @@ app.post('/generate-questions', async (req, res) => {
   try {
     const prompt = `Read the following passage and generate 5 CAT-style multiple choice questions. Each question must have 4 options and indicate the correct option index (0–3). Return the output as a JSON array of objects with keys: q, a, correct.\n\n${articleText}`;
 
-    const completion = await openai.createChatCompletion({
+    const completion = await openai.chat.completions.create({
       model: 'gpt-4',
       messages: [
         { role: 'system', content: 'You are an expert CAT verbal question setter.' },
@@ -35,12 +34,15 @@ app.post('/generate-questions', async (req, res) => {
       max_tokens: 800
     });
 
-    const output = completion.data.choices[0].message.content;
+    const output = completion.choices[0].message.content;
     const parsed = JSON.parse(output);
     res.json({ questions: parsed });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ error: 'Failed to generate questions', details: error.message });
+    res.status(500).json({
+      error: 'Failed to generate questions',
+      details: error.message || error.toString()
+    });
   }
 });
 
