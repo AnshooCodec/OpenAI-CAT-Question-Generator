@@ -24,51 +24,46 @@ app.post('/generate-questions', async (req, res) => {
 
   try {
     const prompt = `
-You are an expert CAT question setter.
-Generate 5 multiple choice questions from the passage below.
-Each question must be in the format:
+Read the following passage and generate exactly 5 CAT-style multiple choice questions.
+Each question should be returned in this JSON format:
 
-{
-  "q": "question?",
-  "a": ["A", "B", "C", "D"],
-  "correct": 1
-}
-
-Only return a valid JSON array (no explanation, no formatting).
+[
+  {
+    "q": "Question text?",
+    "a": ["Option A", "Option B", "Option C", "Option D"],
+    "correct": 1
+  }
+]
 
 Passage:
 ${articleText}
-    `;
+`;
 
     const completion = await openai.createChatCompletion({
       model: 'gpt-4',
       messages: [
-        { role: 'system', content: 'You generate valid JSON for CAT questions.' },
+        { role: 'system', content: 'You are an expert CAT verbal question setter.' },
         { role: 'user', content: prompt }
       ],
       temperature: 0.7,
-      max_tokens: 800
+      max_tokens: 1000
     });
 
-    const output = completion.data.choices[0].message.content.trim();
+    const raw = completion.data.choices[0].message.content;
+    const jsonMatch = raw.match(/\[\s*{[\s\S]*}\s*\]/);
+    if (!jsonMatch) throw new Error('No valid JSON array found in OpenAI response.');
 
-    let parsed;
-    try {
-      parsed = JSON.parse(output);
-    } catch (e) {
-      console.error('❌ Invalid JSON from GPT:', output);
-      return res.status(500).json({ error: 'Invalid JSON format from GPT', raw: output });
-    }
+    const questions = JSON.parse(jsonMatch[0]);
+    res.json({ questions });
 
-    res.json({ questions: parsed });
   } catch (error) {
-    console.error('❌ OpenAI API Error:', error);
+    console.error('Backend Error:', error.message);
     res.status(500).json({ error: 'Failed to generate questions', details: error.message });
   }
 });
 
 app.get('/', (req, res) => {
-  res.send('✅ OpenAI CAT Question Generator API is live!');
+  res.send('✅ OpenAI CAT Question Generator is running!');
 });
 
 app.listen(port, () => {
